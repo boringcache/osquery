@@ -130,7 +130,6 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: workspace/padding-required-by-rpm-packages/src
-          submodules: recursive
           persist-credentials: false
 
       - name: Verify upstream source and configure ccache
