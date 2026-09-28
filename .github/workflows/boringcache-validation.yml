@@ -82,9 +82,23 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            elfutils python3-psutil python3-six python3-wheel linux-headers-generic ccache
-          ccache --version | head -1
+            elfutils python3-psutil python3-six python3-wheel linux-headers-generic
           cmake --version | head -1
+
+      - name: Install ccache
+        shell: bash
+        env:
+          CCACHE_VERSION: '4.14'
+          CCACHE_SHA256: c64760b0b85ba86068f4cd162dc42e2dc39c6f46b0cb8c1990dfccbec7a1fed0
+        run: |
+          archive="ccache-${CCACHE_VERSION}-linux-x86_64-glibc.tar.gz"
+          curl --fail --location --retry 5 -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/ccache/ccache/releases/download/v${CCACHE_VERSION}/$archive"
+          echo "${CCACHE_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check
+          tar xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          sudo install -m 0755 "$RUNNER_TEMP/ccache-${CCACHE_VERSION}-linux-x86_64-glibc/ccache" \
+            /usr/local/bin/ccache
+          ccache --version | head -1
 
       - name: Install BoringCache ccache HTTP helper
         if: matrix.provider == 'boringcache'
@@ -111,11 +125,10 @@ jobs:
           mkdir -p "$source_path" "$build_path" "$CCACHE_DIR"
           printf 'source=%s\nbuild=%s\n' "$source_path" "$build_path" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout exact upstream source
+      - name: Checkout replayed source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: osquery/osquery
-          ref: ${{ steps.source.outputs.sha }}
+          ref: ${{ github.sha }}
           path: workspace/padding-required-by-rpm-packages/src
           submodules: recursive
           persist-credentials: false
@@ -123,7 +136,8 @@ jobs:
       - name: Verify upstream source and configure ccache
         shell: bash
         run: |
-          test "$(git -C '${{ steps.paths.outputs.source }}' rev-parse HEAD)" = '${{ steps.source.outputs.sha }}'
+          test "$(git -C '${{ steps.paths.outputs.source }}' rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(cat '${{ steps.paths.outputs.source }}/.github/boringcache-upstream')" = '${{ steps.source.outputs.sha }}'
           printf 'CCACHE_CONFIGPATH=%s/ccache.conf\n' '${{ steps.paths.outputs.source }}' >> "$GITHUB_ENV"
           git -C '${{ steps.paths.outputs.source }}' submodule status --recursive \
             > "$RUNNER_TEMP/validation/submodules.txt"
