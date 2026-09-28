@@ -1,0 +1,6 @@
+workspace = "boringcache/osquery-validation"
+
+[adapters.ccache]
+tag = "osquery-linux-amd64-release-ccache-20260928"
+no-git = true
+metadata-hints = ["tool=ccache", "workflow=prospect-validation"]
